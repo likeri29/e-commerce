@@ -16,13 +16,15 @@ import { Link } from "react-router-dom";
 
 const SingleProductPage = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+
   const {
     singleProductLoading: loading,
     singleProductError: error,
     singleProduct,
     fetchSingleProduct,
   } = useProductsContext();
-  const navigate = useNavigate();
+
   useEffect(() => {
     fetchSingleProduct(`${url}${id}`);
   }, [id]);
@@ -42,7 +44,7 @@ const SingleProductPage = () => {
     return <Error />;
   }
 
-  console.log(singleProduct);
+  // console.log(singleProduct);
   const {
     name,
     price,
@@ -55,6 +57,7 @@ const SingleProductPage = () => {
     images,
     colors,
   } = singleProduct;
+
   return (
     <Wrapper>
       <PageHero title={name} product />
@@ -63,7 +66,7 @@ const SingleProductPage = () => {
           back to products
         </Link>
         <div className="product-center">
-          <ProductImages />
+          <ProductImages images={images} />
           <section className="content">
             <h2>{name}</h2>
             <Stars />
