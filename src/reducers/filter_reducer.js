@@ -12,10 +12,13 @@ import {
 const filter_reducer = (state, action) => {
   switch (action.type) {
     case LOAD_PRODUCTS:
+      let maxPrice = action.payload.map((p) => p.price);
+      maxPrice = Math.max(...maxPrice);
       return {
         ...state,
         allProducts: [...action.payload],
         filteredProducts: [...action.payload],
+        filters: { ...state.filters, maxPrice: maxPrice, price: maxPrice },
       };
 
     case SET_GRIDVIEW:
@@ -48,6 +51,28 @@ const filter_reducer = (state, action) => {
         });
       }
       return { ...state, filteredProducts: tempProducts };
+
+    case UPDATE_FILTERS:
+      const { name, value } = action.payload;
+      return { ...state, filters: { ...state.filters, [name]: value } };
+
+    case FILTER_PRODUCTS:
+      // console.log("filtering products");
+      return { ...state };
+
+    case CLEAR_FILTERS:
+      return {
+        ...state,
+        filters: {
+          ...state.filters,
+          text: "",
+          company: "all",
+          category: "all",
+          color: "all",
+          price: state.filters.maxPrice,
+          shipping: false,
+        },
+      };
 
     default:
       throw new Error(`No Matching "${action.type}" - action type`);
