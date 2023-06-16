@@ -13,17 +13,134 @@ import { useUserContext } from "../context/user_context";
 import { formatPrice } from "../utils/helpers";
 import { useNavigate } from "react-router-dom";
 
-const CheckoutForm = () => {
-  // const navigate = useNavigate();
+const promise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY);
 
-  return <h4>hello from Stripe Checkout </h4>;
+const CheckoutForm = () => {
+  const { cart, totalAmount, shippingFee, clearCart } = useCartContext();
+  const { myUser } = useUserContext();
+  const navigate = useNavigate();
+  //STRIPE STATE VARIABLES
+  const [succeeded, setSucceeded] = useState(false);
+  const [error, setError] = useState(null);
+  const [processing, setProcessing] = useState("");
+  const [disabled, setDisabled] = useState(true);
+  const [clientSecret, setClientSecret] = useState("");
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const cardStyle = {
+    style: {
+      base: {
+        color: "#32325d",
+        fontFamily: "Arial, sans-serif",
+        fontSmoothing: "antialiased",
+        fontSize: "16px",
+        "::placeholder": {
+          color: "#32325d",
+        },
+      },
+      invalid: {
+        color: "#fa755a",
+        iconColor: "#fa755a",
+      },
+    },
+  };
+
+  const createPaymentIntent = async () => {
+    try {
+      const { data } = await axios.post(
+        "/.netlify/functions/create-payment-intent",
+        JSON.stringify({ cart, shippingFee, totalAmount })
+      );
+      setClientSecret(data.clientSecret);
+    } catch (error) {
+      console.log(error.response);
+    }
+  };
+
+  useEffect(() => {
+    createPaymentIntent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleChange = async (event) => {
+    setDisabled(event.empty);
+    setError(event.error ? event.error.message : "");
+  };
+  const handleSubmit = async (ev) => {
+    ev.preventDefault();
+    setProcessing(true);
+    const payload = await stripe.confirmCardPayment(clientSecret, {
+      payment_method: {
+        card: elements.getElement(CardElement),
+      },
+    });
+    if (payload.error) {
+      setError(`Payment failed ${payload.error.message}`);
+      setProcessing(false);
+    } else {
+      setError(null);
+      setProcessing(false);
+      setSucceeded(true);
+      setTimeout(() => {
+        clearCart();
+        navigate("/");
+      }, 10000);
+    }
+  };
+
+  return (
+    <div>
+      {succeeded ? (
+        <article>
+          <h4>Thank you</h4>
+          <h4>Your payment was successful</h4>
+          <h4>Redirecting to home page shortly</h4>
+        </article>
+      ) : (
+        <article>
+          <h4>Hello, {myUser && myUser.name}</h4>
+          <p>Your total is {formatPrice(totalAmount + shippingFee)}</p>
+          <p>Test Card Number: 4242 4242 4242 4242</p>
+        </article>
+      )}
+      <form id="payment-form" onSubmit={handleSubmit}>
+        <CardElement
+          id="card-element"
+          options={cardStyle}
+          onChange={handleChange}
+        />
+        <button disabled={processing || disabled || succeeded} id="submit">
+          <span id="button-text">
+            {processing ? <div className="spinner" id="spinner"></div> : "Pay"}
+          </span>
+        </button>
+        {/* show any error that happen when processing */}
+        {error && (
+          <div className="card-error" role="alert">
+            {error}
+          </div>
+        )}
+        {/* show a success message */}
+        <p className={succeeded ? "result-message" : "result-message hidden"}>
+          Payment succeeded, see the result in your{" "}
+          <a href={"https://dashboard.stripe.com/test/payments"}>
+            Stripe dashboard
+          </a>
+          Refresh the page to pay again
+        </p>
+      </form>
+    </div>
+  );
 };
 
 // instead of history.push('/') => navigate('/')
 const StripeCheckout = () => {
   return (
     <Wrapper>
-      <CheckoutForm />
+      <Elements stripe={promise}>
+        <CheckoutForm />
+      </Elements>
     </Wrapper>
   );
 };
@@ -161,7 +278,7 @@ const Wrapper = styled.section`
       transform: rotate(360deg);
     }
   }
-  @media only screen and (max-width: 600px) {
+  @media only screen and (max-width: 699px) {
     form {
       width: 80vw;
     }
